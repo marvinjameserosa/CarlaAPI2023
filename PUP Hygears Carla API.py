@@ -22,6 +22,11 @@ class Carla():
 
         self.blueprints = self.world.get_blueprint_library()
         self.spawn_points = self.world.get_map().get_spawn_points()
+        ego_vehicle_bp = self.blueprints.find('vehicle.tesla.model3')
+        location = carla.Transform(carla.Location(x=30, y=6, z=1), carla.Rotation(yaw=0))
+        self.ego_vehicle = self.world.try_spawn_actor(ego_vehicle_bp, location)
+        self.Collision_Sensors()
+        
     
     def LoadTown(self):
         self.town = self.client.load_world(TOWN)
@@ -35,19 +40,16 @@ class Carla():
     def Collision_Sensors(self):
         self.colsensor_bp = self.blueprints.find('sensor.other.collision')
         self.colsensor_transform = carla.Transform(carla.Location(x=1.0, z=1.0))
-    
-    def Collision_Event(self):
+        self.colsensor = None
         try:
             self.colsensor = self.world.spawn_actor(self.colsensor_bp, self.colsensor_transform, attach_to=self.ego_vehicle)
             self.colsensor.listen(lambda event: self.on_collision(event, self))
         except Exception as e:
             print("Exception occurred:", e)
+    
 
     def Spawn_Vehicle(self):
-        ego_vehicle_bp = self.blueprints.find('vehicle.tesla.model3')
-        location = carla.Transform(carla.Location(x=30, y=6, z=1), carla.Rotation(yaw=0))
-        self.ego_vehicle = self.world.try_spawn_actor(ego_vehicle_bp, location)
-        self.Collision_Sensors()
+        pass
 
     def Despawn_All_Vehicles(self):
         actor_list = self.world.get_actors()
@@ -63,7 +65,7 @@ class Carla():
         run = True
         while run:
             self.Spawn_Vehicle()
-            self.Collision_Event()
+            
             self.Ego_Movement()
             
 
