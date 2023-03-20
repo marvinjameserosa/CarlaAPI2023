@@ -4,13 +4,13 @@ import numpy as np
 
 IP_ADDRESS = 'localhost'
 PORT = 2000
-TIMEOUT = 10
-TOWN = 'Town05'
+TIMEOUT = 50
+TOWN = 'Town01'
 EGO_VEHICLE = 'vehicle.tesla.model3'
 image_count = 0
 class Carla():
 
-    def __init__(self, image_count):
+    def __init__(self):
         while True:
             try:
                 self.client = carla.Client(IP_ADDRESS, PORT)
@@ -30,7 +30,7 @@ class Carla():
         self.ego_vehicle = self.world.try_spawn_actor(ego_vehicle_bp, location)
         self.Collision_Sensors()
         self.RGB_Cam_Sensors()
-        self.Take_Pictures(image_count)
+        self.Take_Pictures()
         
 
         # Game Loop
@@ -77,7 +77,7 @@ class Carla():
         self.camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
         self.camera = self.world.spawn_actor(self.camera_bp, self.camera_transform, attach_to=self.ego_vehicle)
 
-    def Process_Image(self, image, image_count):
+    def Process_Image(self, image):
         image.convert(carla.ColorConverter.Raw)
         self.raw_image = np.array(image.raw_data)
         self.raw_image = self.raw_image.reshape((image.height, image.width, 4))
@@ -85,8 +85,8 @@ class Carla():
         cv2.imshow("Camera View", self.raw_image)
         cv2.waitKey(1)
 
-    def Take_Pictures(self, image_count):
-        self.camera.listen(lambda image: self.Process_Image(image, image_count))
+    def Take_Pictures(self):
+        self.camera.listen(lambda image: self.Process_Image(image))
     
 
     def on_collision(self, event, _):
@@ -106,12 +106,11 @@ class Carla():
         except Exception as e:
             print("Exception occurred:", e)
     
-    def Update(self, image_count):
+    def Update(self):
         
         while self.run:
                 try:
                     self.world.tick()
-                    image_count += 1
                     self.Ego_Movement()
                     self.Speedometer()
                     self.Speed_Limit()
@@ -121,7 +120,7 @@ class Carla():
            
             
 if __name__ == "__main__":
-    simulator = Carla(image_count)
-    #simulator.Update(image_count)
+    simulator = Carla()
+    #simulator.Update()
     #simulator.Despawn_All_Vehicles()
     simulator.LoadTown()
