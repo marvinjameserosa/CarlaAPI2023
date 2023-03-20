@@ -33,7 +33,7 @@ ego_vehicle = world.try_spawn_actor(ego_vehicle_bp, location)
 
 # Obstacle Detector
 obstacle_bp = blueprints.find('sensor.other.obstacle')
-obstacle_transform = carla.Transform(carla.Location(x=2.0, z=1.0))
+obstacle_transform = carla.Transform(carla.Location(x=6.0, z=1.0))
 try:
     obstacle_sensor = world.spawn_actor(obstacle_bp, obstacle_transform, attach_to=ego_vehicle)
     obstacle_sensor.listen(lambda event: Obstacle_Distance(event))
@@ -45,7 +45,7 @@ colsensor_bp = blueprints.find('sensor.other.collision')
 colsensor_transform = carla.Transform(carla.Location(x=1.0, z=1.0))
 try:
     colsensor = world.spawn_actor(colsensor_bp, colsensor_transform, attach_to=ego_vehicle)
-    colsensor.listen(lambda event: on_collision(event))
+    #colsensor.listen(lambda event: on_collision(event))
 except:
     pass
 
@@ -66,7 +66,7 @@ def Ego_Movement():
 def Speed_Limit(): 
     global speed
     #print(speed)
-    if speed > 35:
+    if speed > 30:
         ego_vehicle.apply_control(carla.VehicleControl(brake=1)) 
 
 def Speedometer():
@@ -78,6 +78,12 @@ def Speedometer():
 
 def Auto_Brake():
     global obstacle_distance 
+    global speed
+    if not obstacle_distance == None:
+        print(speed)
+        ego_vehicle.apply_control(carla.VehicleControl(brake=1))
+        
+
 
 def Obstacle_Distance(event):
     global obstacle_distance
@@ -105,6 +111,7 @@ def Update():
             Ego_Movement()
             Speedometer()
             Speed_Limit()
+            Auto_Brake()
         except:
             pass
 
