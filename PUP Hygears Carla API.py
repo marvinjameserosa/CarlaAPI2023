@@ -1,11 +1,13 @@
 import carla
 import cv2
+import math
 import numpy as np
+
 
 IP_ADDRESS = 'localhost'
 PORT = 2000
 TIMEOUT = 50
-TOWN = 'Town01'
+TOWN = 'Town05'
 EGO_VEHICLE = 'vehicle.tesla.model3'
 image_count = 0
 class Carla():
@@ -31,7 +33,7 @@ class Carla():
         self.Collision_Sensors()
         self.RGB_Cam_Sensors()
         self.Take_Pictures()
-        
+        self.Obstacle_Sensors()
 
         # Game Loop
         self.run = True
@@ -39,6 +41,7 @@ class Carla():
         # Input
         self.raw_image = None
         self.collide = False
+        self.obstacle_distance = None
         self.speed = None
         
         # Output
@@ -47,11 +50,36 @@ class Carla():
         self.breaking = 0
 
     def LoadTown(self):
-        self.town = self.client.load_world(TOWN)
+        town = self.client.load_world(TOWN)
         print("Town Loaded")
     
     def Reset(self):
-        pass
+        self.LoadTown()
+        self.blueprints = self.world.get_blueprint_library()
+        self.spawn_points = self.world.get_map().get_spawn_points()
+
+        # Ego Vehicle
+        ego_vehicle_bp = self.blueprints.find(EGO_VEHICLE)
+        location = carla.Transform(carla.Location(x=30, y=6, z=1), carla.Rotation(yaw=0))
+        self.ego_vehicle = self.world.try_spawn_actor(ego_vehicle_bp, location)
+        self.Collision_Sensors()
+        self.RGB_Cam_Sensors()
+        self.Take_Pictures()
+        self.Obstacle_Sensors()
+
+        # Game Loop
+        self.run = True
+
+        # Input
+        self.raw_image = None
+        self.collide = False
+        self.obstacle_distance = None
+        self.speed = None
+        
+        # Output
+        self.throttle = 1
+        self.steer = 0
+        self.breaking = 0
     
     def Despawn_All_Vehicles(self):
         actor_list = self.world.get_actors()
@@ -64,26 +92,26 @@ class Carla():
         self.ego_vehicle.apply_control(carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=self.breaking))
 
     def Speed_Limit(self): 
-        if self.speed > 25:
+        if self.speed > 35:
             self.ego_vehicle.apply_control(carla.VehicleControl(brake=1)) 
 
     def Speedometer(self):
-        self.velocity = self.ego_vehicle.get_velocity()
-        self.speed = 3.6 * (self.velocity.x**2 + self.velocity.y**2 + self.velocity.z**2)**0.5
-        print(self.speed, "km/h")
+        velocity = self.ego_vehicle.get_velocity()
+        self.speed = 3.6 * (velocity.x**2 + velocity.y**2 + velocity.z**2)**0.5
+        #print(self.speed, "km/h")
 
     def RGB_Cam_Sensors(self):
-        self.camera_bp = self.blueprints.find('sensor.camera.rgb')
-        self.camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
-        self.camera = self.world.spawn_actor(self.camera_bp, self.camera_transform, attach_to=self.ego_vehicle)
+        camera_bp = self.blueprints.find('sensor.camera.rgb')
+        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        self.camera = self.world.spawn_actor(camera_bp, camera_transform, attach_to=self.ego_vehicle)
 
     def Process_Image(self, image):
         image.convert(carla.ColorConverter.Raw)
         self.raw_image = np.array(image.raw_data)
         self.raw_image = self.raw_image.reshape((image.height, image.width, 4))
         self.raw_image = self.raw_image[:, :, :3]
-        cv2.imshow("Camera View", self.raw_image)
-        cv2.waitKey(1)
+        #cv2.imshow("Camera View", self.raw_image)
+        #cv2.waitKey(1)
 
     def Take_Pictures(self):
         self.camera.listen(lambda image: self.Process_Image(image))
@@ -97,15 +125,30 @@ class Carla():
         self.run = False
 
     def Collision_Sensors(self):
-        self.colsensor_bp = self.blueprints.find('sensor.other.collision')
-        self.colsensor_transform = carla.Transform(carla.Location(x=1.0, z=1.0))
-        self.colsensor = None
+        colsensor_bp = self.blueprints.find('sensor.other.collision')
+        colsensor_transform = carla.Transform(carla.Location(x=1.0, z=1.0))
         try:
-            self.colsensor = self.world.spawn_actor(self.colsensor_bp, self.colsensor_transform, attach_to=self.ego_vehicle)
+            self.colsensor = self.world.spawn_actor(colsensor_bp, colsensor_transform, attach_to=self.ego_vehicle)
             self.colsensor.listen(lambda event: self.on_collision(event, self))
         except Exception as e:
             print("Exception occurred:", e)
     
+
+    def Obstacle_Sensors(self):
+        obstacle_bp = self.blueprints.find('sensor.other.obstacle')
+        obstacle_transform = carla.Transform(carla.Location(x=2.0, z=1.0))
+        try:
+            self.obstacle_sensor = self.world.spawn_actor(obstacle_bp, obstacle_transform, attach_to=self.ego_vehicle)
+            self.obstacle_sensor.listen(lambda event: self.Obstacle_Distance(event, self))
+        except Exception as e:
+            print("Exception occurred:", e)
+    
+    def Obstacle_Distance(self, event, _):
+        obstacle_location = event.other_actor.get_location()
+        vehicle_location = self.ego_vehicle.get_location()
+        self.obstacle_distance = math.sqrt(((obstacle_location.x - vehicle_location.x)**2) + ((obstacle_location.y - vehicle_location.y)**2) + ((obstacle_location.z - vehicle_location.z)**2))
+        print("Obstacle detected at distance: ", self.obstacle_distance)
+
     def Update(self):
         
         while self.run:
@@ -116,11 +159,9 @@ class Carla():
                     self.Speed_Limit()
                 except:
                     pass
-
-           
-            
+          
 if __name__ == "__main__":
     simulator = Carla()
-    #simulator.Update()
+    simulator.Update()
     #simulator.Despawn_All_Vehicles()
-    simulator.LoadTown()
+    #simulator.LoadTown()
